@@ -1,4 +1,6 @@
 import pysrt
+import os
+import glob
 from pysrt import SubRipFile
 from pysrt import SubRipItem
 from pysrt import SubRipTime
@@ -20,7 +22,8 @@ book['sam'] = {
 import json
 s=json.dumps(book)
 
-subs = pysrt.open('D://Users/Kabir/Python_Projects/Friends.S01E01.720p.BluRay.x264-PSYCHD.srt')
+
+subs = pysrt.open('D://Users/Kabir/FriendsFM/Friends_Subs/Friends.S01E01.720p.BluRay.x264-PSYCHD.srt')
 
 
 # printing the subs
@@ -38,8 +41,14 @@ while i < len(subs):
 #print(test_sub.end.seconds)
 #print(test_sub.end.milliseconds)
 
-words = (PyLyrics.getLyrics('Michael Jackson','Billie Jean'))
+lyrics = (PyLyrics.getLyrics('Survivor','Eye of the Tiger'))
 
-data = words.split()
+print(lyrics)
 
-print(data[0])
+data = lyrics.split()
+
+print(data[1])
+path = 'D://Users/Kabir/FriendsFM/Friends_Subs/'
+
+#for filename in os.listdir(path):
+	#print(filename)
