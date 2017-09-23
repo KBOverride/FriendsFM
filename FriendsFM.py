@@ -2,10 +2,14 @@ import pysrt
 import os
 import glob
 import re
+import pydub
+from pydub import AudioSegment
 from pysrt import SubRipFile
 from pysrt import SubRipItem
 from pysrt import SubRipTime
 from PyLyrics import *
+
+pydub.AudioSegment.converter = r"D://FFmpeg/bin/ffmpeg.exe"
 
 book = {}
 book['kb'] = {
@@ -24,7 +28,7 @@ import json
 s=json.dumps(book)
 
 
-subs = pysrt.open('D://Users/Kabir/FriendsFM/Friends_Subs/Friends.S01E01.720p.BluRay.x264-PSYCHD.srt')
+#subs = pysrt.open('D://Users/Kabir/FriendsFM/Friends_Subs/Friends.S01E01.720p.BluRay.x264-PSYCHD.srt')
 
 
 #printing the subs
@@ -48,7 +52,10 @@ subs = pysrt.open('D://Users/Kabir/FriendsFM/Friends_Subs/Friends.S01E01.720p.Bl
 
 i = 0
 j = False
-lyrics = (PyLyrics.getLyrics('Survivor','Eye of the Tiger'))
+Artist = 'Survivor'
+Song = 'Eye of the Tiger'
+lyrics = (PyLyrics.getLyrics(Artist,Song))
+combinedAudio = AudioSegment.empty()
 
 #print(lyrics)
 
@@ -66,12 +73,18 @@ for k in range(lyricsLen):
 print(data)
 print("\n")
 
-path = 'D://Users/Kabir/FriendsFM/Friends_Subs/'
+filename = ''
+
+subs_path = 'D://Users/Kabir/FriendsFM/Friends_Subs/'
+video_path = 'D://Users/Kabir/MyVideos/FriendsSeason1-10COMPLETE720pBrRipx264[PAHE.in]/'
+audio_path = 'D://Users/Kabir/MyVideos/FriendsSeason1-10COMPLETE720pBrRipx264[PAHE.in]/FriendsAudio'
+export_path = 'D://Users/Kabir/FriendsFM/Friends_Audio/'
+season_path = 0
 
 # Searching through every srt file and matching each word from the lyrics of the song to the word in the srt file
 for i, item in enumerate(data):
-	for filename in os.listdir(path):
-		subs = pysrt.open(path + filename)
+	for filename in os.listdir(subs_path):
+		subs = pysrt.open(subs_path + filename)
 		#print(len(subs))
 		for part in subs:
 			searchObj = re.search(r'\b' + data[i] + r'\b', part.text, re.IGNORECASE)
@@ -79,6 +92,13 @@ for i, item in enumerate(data):
 				j = True
 				print(part.text)
 				print("\n")
+				# Finds the part of the subs in which the word is being said and exports it as a new audio file for Google Speech Api
+				mp3_filename = filename[0:38] + '.mp3'
+				newAudio = AudioSegment.from_mp3(audio_path + '/' + mp3_filename)
+				t1 = part.start.minutes * 60 * 1000 + part.start.seconds * 1000 + part.start.milliseconds
+				t2 = part.end.minutes * 60 * 1000 + part.end.seconds * 1000 + part.end.milliseconds
+				newAudio = newAudio[t1:t2]
+				combinedAudio = combinedAudio + newAudio
 				break
 				# print(subs.text)
 		if j:
@@ -86,4 +106,7 @@ for i, item in enumerate(data):
 	if j == False:
 		print(data[i])
 	j = False
+
+combinedAudio.export(export_path + 'combined.mp3', format='mp3')
+
 	
