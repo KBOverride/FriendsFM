@@ -1,42 +1,36 @@
+# Author: Kabir Singh
+# Project: FriendsFM
+# Description: Takes song lyrics and makes the song using audio from the popular sitcom "Friends".
+import io
 import pysrt
 import os
 import glob
 import re
 import pydub
+
 from pydub import AudioSegment
 from pysrt import SubRipFile
 from pysrt import SubRipItem
 from pysrt import SubRipTime
+from transcribe import transcribe_file
 from PyLyrics import *
 
+from google.cloud import speech
+from google.cloud.speech import enums
+from google.cloud.speech import types
+
 pydub.AudioSegment.converter = r"D://FFmpeg/bin/ffmpeg.exe"
-
-# book = {}
-# book['kb'] = {
-# 	'name': 'tom',
-# 	'address': '123 Springfield',
-# 	'phone': 1234567890
-# }
-
-# book['sam'] = {
-# 	'name': 'sam',
-# 	'address': '124 Springfield',
-# 	'phone': 5392849034
-# }
-
-# import json
-# s=json.dumps(book)
 
 i = 0
 j = False
 k = 0
+# Example: Using "Eye of the Tiger" as an example for now
 Artist = 'Survivor'
 Song = 'Eye of the Tiger'
 filename = ''
 lyrics = (PyLyrics.getLyrics(Artist,Song))
 combinedAudio = AudioSegment.empty()
 firstVisitedFlag = True
-
 data = lyrics.split()
 lyricsLen = len(data)
 print("\n")
@@ -49,20 +43,13 @@ print(data)
 print("\n")
 
 subs_path = 'D://Users/Kabir/FriendsFM/Friends_Subs/'
-video_path = 'D://Users/Kabir/MyVideos/FriendsSeason1-10COMPLETE720pBrRipx264[PAHE.in]/'
-audio_path = 'D://Users/Kabir/MyVideos/FriendsSeason1-10COMPLETE720pBrRipx264[PAHE.in]/FriendsAudio/mp3'
+audio_path = 'D://Users/Kabir/MyVideos/FriendsSeason1-10COMPLETE720pBrRipx264[PAHE.in]/FriendsAudio/flac/'
 export_path = 'D://Users/Kabir/FriendsFM/Friends_Audio/'
+temp_path = 'D://Users/Kabir/FriendsFM/Friends_Audio/Temporary/'
+songs_path = 'D://Users/Kabir/FriendsFM/Friends_Audio/Songs/'
 
 fnames = os.listdir(subs_path)
 fnamesLen = len(fnames)
-
-# In case the word is not found I replaced the audio with "something"
-# subs = pysrt.open(subs_path + 'Friends.S01E01.720p.BluRay.x264-PSYCHD.srt')
-# somethingAudio = AudioSegment.from_mp3(audio_path + '/Friends.S01E01.720p.BluRay.x264-PSYCHD.mp3')
-# t1 = subs[2].start.seconds * 1000 + subs[2].start.milliseconds
-# t2 = subs[2].end.seconds * 1000 + subs[2].end.milliseconds
-# somethingAudio = somethingAudio[t1:t2]
-# somethingAudio.export(export_path + 'something.mp3', format='mp3')
 
 #Searching through every srt file and matching each word from the lyrics of the song to the word in the srt file
 for i, item in enumerate(data):
@@ -73,7 +60,6 @@ for i, item in enumerate(data):
 			firstVisitedFlag = True
 			print(data[i])
 			print("NOT FOUND")
-			# combinedAudio = combinedAudio + somethingAudio
 			break
 		if firstVisitedFlag:
 			firstVisitedFile = fnames[k]
@@ -83,20 +69,33 @@ for i, item in enumerate(data):
 		for part in subs:
 			searchSub = re.search(r'\b' + data[i] + r'\b', part.text, re.IGNORECASE)
 			if searchSub:
-				print("\n")
-				print(data[i])
-				print(part.text)
-				j = True
-				firstVisitedFlag = True
-				# Finds the part of the subs in which the word is being said and exports it as a new audio file for Google Speech Api
 				filename = fnames[k]
-				mp3_filename = filename[0:38] + '.mp3'
-				newAudio = AudioSegment.from_mp3(audio_path + '/' + mp3_filename)
+				flac_filename = filename[0:38] + '.flac'
+				newAudio = AudioSegment.from_file(audio_path + flac_filename)
+				# Finds the part of the subs in which the word is being said and exports it as a new audio file for Google Speech Api
 				t1 = part.start.minutes * 60 * 1000 + part.start.seconds * 1000 + part.start.milliseconds
-				t2 = part.end.minutes * 60 * 1000 + part.end.seconds * 1000 + part.end.milliseconds
+				t2 = part.end.minutes * 60 * 1000 + part.end.seconds * 1000 + 1000 + part.end.milliseconds
 				newAudio = newAudio[t1:t2]
-				combinedAudio = combinedAudio + newAudio
-				break
+				newAudio.export(temp_path + 'temporary' + str(i) + '.flac', format='flac', parameters=["-ac", "1"])
+
+				word_info = transcribe_file(temp_path + 'temporary' + str(i) + '.flac', data, i)
+				if(word_info is not None):
+					print("\n")
+					print(word_info.word)
+					print(data[i])
+					if (word_info.word.lower() == data[i].lower()):
+						j = True
+						firstVisitedFlag = True
+						start_time = word_info.start_time
+						end_time = word_info.end_time
+						start_milliseconds = start_time.nanos * 1e-9
+						end_milliseconds = end_time.nanos * 1e-9
+						t1 = start_time.seconds * 1000 + start_milliseconds * 1000
+						t2 = end_time.seconds * 1000 + end_milliseconds * 1000
+						keywordAudio = AudioSegment.from_file(temp_path + 'temporary' + str(i) + '.flac')
+						keywordAudio = keywordAudio[t1:t2]
+						combinedAudio = combinedAudio + keywordAudio
+						break
 		if k == fnamesLen - 1:
 			k = 0
 		else:
@@ -106,7 +105,10 @@ for i, item in enumerate(data):
 			j = False
 			break
 
-combinedAudio.export(export_path + 'combined.mp3', format='mp3')
+combinedAudio.export(export_path + Song + '.flac', format='flac', parameters=["-ac", "2"])
+print("\n")
+print("Finished Song")
+
 
 
 
