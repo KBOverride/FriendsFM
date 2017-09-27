@@ -9,6 +9,8 @@ Takes song lyrics and makes the song using audio from the popular sitcom "Friend
 
 Audio Folder is not on GitHub due to file size limits
 
+- Export transcribed data in JSON format so we don't have to waste credit for Google Cloud Services when transcribing for the same song again
+
 ## Current Problems that Need Fixing
 - FriendsFM only analyzes Season 1-7. Need to fix Season 8-10.
 - Season 6 Episode 23 does not have subs
